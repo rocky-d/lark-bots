@@ -1,7 +1,7 @@
 import asyncio as aio
 from contextvars import Context
 from types import TracebackType
-from typing import Any, Awaitable, Generator, Generic, Iterable, Self, Type, TypeVar
+from typing import Any, Awaitable, Generator, Iterable, Self, Type
 
 __all__ = [
     "AsyncTask",
@@ -9,10 +9,7 @@ __all__ = [
 ]
 
 
-_T_co = TypeVar("_T_co", covariant=True)
-
-
-class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
+class AsyncTask[T](Awaitable[T]):
     """
     Usage:
 
@@ -54,7 +51,7 @@ class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
 
     def __await__(
         self,
-    ) -> Generator[Any, None, _T_co]:
+    ) -> Generator[Any, None, T]:
         yield from self.join().__await__()
         return self.result
 
@@ -111,7 +108,7 @@ class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
     @property
     def result(
         self,
-    ) -> _T_co:
+    ) -> T:
         return self._fut.result()
 
     @property
@@ -122,7 +119,7 @@ class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
 
     async def _run(
         self,
-    ) -> _T_co:
+    ) -> T:
         raise NotImplementedError
 
     async def start(
@@ -165,13 +162,10 @@ class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
         self._started = False
 
 
-_T = TypeVar("_T")
-
-
-class AsyncTaskGroup(AsyncTask[list[_T]]):
+class AsyncTaskGroup[T](AsyncTask[list[T]]):
     def __init__(
         self,
-        atasks: Iterable[AsyncTask[_T]],
+        atasks: Iterable[AsyncTask[T]],
         *,
         name: str | None = None,
         context: Context | None = None,
@@ -181,7 +175,7 @@ class AsyncTaskGroup(AsyncTask[list[_T]]):
 
     async def _run(
         self,
-    ) -> list[_T]:
+    ) -> list[T]:
         async with aio.TaskGroup() as tg:
             for atask in self._atasks:
                 tg.create_task(atask.join())
