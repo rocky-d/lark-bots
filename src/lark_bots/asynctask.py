@@ -169,21 +169,21 @@ T = TypeVar("T")
 class AsyncTaskGroup(AsyncTask[list[T]]):
     def __init__(
         self,
-        acoros: Iterable[AsyncTask[T]],
+        atasks: Iterable[AsyncTask[T]],
         *,
         name: str | None = None,
         context: Context | None = None,
     ) -> None:
         super().__init__(name=name, context=context)
-        self._acoros = list(acoros)
+        self._atasks = list(atasks)
 
     async def _run(
         self,
     ) -> list[T]:
         async with aio.TaskGroup() as tg:
-            for acoro in self._acoros:
-                tg.create_task(acoro.join())
-        return [acoro.result for acoro in self._acoros]
+            for atask in self._atasks:
+                tg.create_task(atask.join())
+        return [atask.result for atask in self._atasks]
 
     async def start(
         self,
@@ -191,8 +191,8 @@ class AsyncTaskGroup(AsyncTask[list[T]]):
         if self.started:
             return
         async with aio.TaskGroup() as tg:
-            for acoro in self._acoros:
-                tg.create_task(acoro.start())
+            for atask in self._atasks:
+                tg.create_task(atask.start())
         await super().start()
 
     async def stop(
@@ -205,8 +205,8 @@ class AsyncTaskGroup(AsyncTask[list[T]]):
             return
         await super().stop(exc_type, exc_value, exc_traceback)
         async with aio.TaskGroup() as tg:
-            for acoro in self._acoros:
-                tg.create_task(acoro.stop(exc_type, exc_value, exc_traceback))
+            for atask in self._atasks:
+                tg.create_task(atask.stop(exc_type, exc_value, exc_traceback))
 
 
 if __name__ == "__main__":
