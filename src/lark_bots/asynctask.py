@@ -9,10 +9,10 @@ __all__ = [
 ]
 
 
-T_co = TypeVar("T_co", covariant=True)
+_T_co = TypeVar("_T_co", covariant=True)
 
 
-class AsyncTask(Awaitable[T_co], Generic[T_co]):
+class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
     """
     Usage:
 
@@ -54,7 +54,7 @@ class AsyncTask(Awaitable[T_co], Generic[T_co]):
 
     def __await__(
         self,
-    ) -> Generator[Any, None, T_co]:
+    ) -> Generator[Any, None, _T_co]:
         yield from self.join().__await__()
         return self.result
 
@@ -111,7 +111,7 @@ class AsyncTask(Awaitable[T_co], Generic[T_co]):
     @property
     def result(
         self,
-    ) -> T_co:
+    ) -> _T_co:
         return self._fut.result()
 
     @property
@@ -122,7 +122,7 @@ class AsyncTask(Awaitable[T_co], Generic[T_co]):
 
     async def _run(
         self,
-    ) -> T_co:
+    ) -> _T_co:
         raise NotImplementedError
 
     async def start(
@@ -163,13 +163,13 @@ class AsyncTask(Awaitable[T_co], Generic[T_co]):
         self._started = False
 
 
-T = TypeVar("T")
+_T = TypeVar("_T")
 
 
-class AsyncTaskGroup(AsyncTask[list[T]]):
+class AsyncTaskGroup(AsyncTask[list[_T]]):
     def __init__(
         self,
-        atasks: Iterable[AsyncTask[T]],
+        atasks: Iterable[AsyncTask[_T]],
         *,
         name: str | None = None,
         context: Context | None = None,
@@ -179,7 +179,7 @@ class AsyncTaskGroup(AsyncTask[list[T]]):
 
     async def _run(
         self,
-    ) -> list[T]:
+    ) -> list[_T]:
         async with aio.TaskGroup() as tg:
             for atask in self._atasks:
                 tg.create_task(atask.join())
