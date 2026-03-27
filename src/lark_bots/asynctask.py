@@ -106,7 +106,7 @@ class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
     def running(
         self,
     ) -> bool:
-        return self.started and not self.done and not self.cancelled
+        return self.started and not self.done
 
     @property
     def result(
