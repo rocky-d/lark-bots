@@ -160,6 +160,8 @@ class AsyncTask(Awaitable[_T_co], Generic[_T_co]):
     ) -> None:
         if not self.started:
             return
+        if self.running:
+            raise aio.InvalidStateError
         self._started = False
 
 
@@ -203,6 +205,8 @@ class AsyncTaskGroup(AsyncTask[list[_T]]):
     ) -> None:
         if not self.started:
             return
+        if self.running:
+            raise aio.InvalidStateError
         await super().stop(exc_type, exc_value, exc_traceback)
         async with aio.TaskGroup() as tg:
             for atask in self._atasks:
