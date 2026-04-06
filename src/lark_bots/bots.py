@@ -7,9 +7,9 @@ import time
 from types import TracebackType
 from typing import Self, Type
 
+import atask
 import httpx
 
-from .asynctask import AsyncTask
 from .cards import error_card_factory
 
 __all__ = [
@@ -323,7 +323,7 @@ class ABot:
         return await self.send(payload)
 
 
-class _BaseQBot(AsyncTask[None]):
+class _BaseQBot(atask.AsyncTask[None]):
     def __init__(
         self,
         url: str,
