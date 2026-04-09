@@ -337,7 +337,7 @@ class QBot(atask.AsyncTask[None]):
         self._delay = max(0.0, delay)
         self._max_tries = max(1, max_tries)
         self._aclient = httpx.AsyncClient()
-        self._que = aio.Queue()
+        self._aque = aio.Queue()
 
     @property
     def closed(
@@ -364,7 +364,7 @@ class QBot(atask.AsyncTask[None]):
         if not self.started:
             _logger.info(f"{self} has canceled")
             return
-        await self._que.join()
+        await self._aque.join()
         await super().acancel()
         _logger.info(f"{self} canceled")
 
@@ -386,7 +386,7 @@ class QBot(atask.AsyncTask[None]):
         self,
     ) -> None:
         while True:
-            payload, fut = await self._que.get()
+            payload, fut = await self._aque.get()
             for i in range(self._max_tries):
                 if 0 < i:
                     await aio.sleep(self._delay)
@@ -416,14 +416,14 @@ class QBot(atask.AsyncTask[None]):
                     self._signer.sign(payload)
                 _resp = await self._aclient.post(self._url, json=payload)
             fut.set_result(resp)
-            self._que.task_done()
+            self._aque.task_done()
 
     def send(
         self,
         payload: dict,
     ) -> aio.Future[httpx.Response]:
         fut = aio.Future()
-        self._que.put_nowait((payload, fut))
+        self._aque.put_nowait((payload, fut))
         return fut
 
     def send_text(
@@ -481,7 +481,7 @@ class QBot(atask.AsyncTask[None]):
         payload: dict,
     ) -> aio.Future[httpx.Response]:
         fut = aio.Future()
-        await self._que.put((payload, fut))
+        await self._aque.put((payload, fut))
         return fut
 
     async def asend_text(
