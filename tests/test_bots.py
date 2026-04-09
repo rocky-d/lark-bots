@@ -112,13 +112,8 @@ class TestBotSend:
         assert 2 == mock_post.call_count
         mock_sleep.assert_called_once_with(1.0)
 
-    @patch("time.sleep")
     @patch("httpx.Client.post")
-    def test_retry_on_bad_code(
-        self,
-        mock_post: MagicMock,
-        mock_sleep: MagicMock,
-    ) -> None:
+    def test_retry_on_bad_code(self, mock_post: MagicMock) -> None:
         mock_post.side_effect = [_bad_code_response(), _ok_response()]
         with Bot(_URL, max_tries=3) as bot:
             resp = bot.send({"msg_type": "text"})
@@ -135,13 +130,8 @@ class TestBotSend:
             resp = bot.send({"msg_type": "text"})
         assert {"code": 0} == resp.json()
 
-    @patch("time.sleep")
     @patch("httpx.Client.post")
-    def test_exhausted_retries_sends_error_card(
-        self,
-        mock_post: MagicMock,
-        mock_sleep: MagicMock,
-    ) -> None:
+    def test_exhausted_retries_sends_error_card(self, mock_post: MagicMock) -> None:
         err = _server_error_response()
         mock_post.side_effect = [err, err, err, _ok_response()]
         with Bot(_URL, max_tries=3) as bot:
@@ -151,13 +141,8 @@ class TestBotSend:
         error_payload = mock_post.call_args_list[3][1]["json"]
         assert "interactive" == error_payload["msg_type"]
 
-    @patch("time.sleep")
     @patch("httpx.Client.post")
-    def test_exhausted_retries_with_signer(
-        self,
-        mock_post: MagicMock,
-        mock_sleep: MagicMock,
-    ) -> None:
+    def test_exhausted_retries_with_signer(self, mock_post: MagicMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         with Bot(_URL, secret=_SECRET, max_tries=1) as bot:
             bot.send({"msg_type": "text"})
@@ -298,13 +283,8 @@ class TestABotSend:
         assert "sign" in payload
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
-    async def test_retry_on_http_error(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
-    ) -> None:
+    async def test_retry_on_http_error(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         async with ABot(_URL, max_tries=3) as abot:
             resp = await abot.asend({"msg_type": "text"})
@@ -312,12 +292,9 @@ class TestABotSend:
         assert 2 == mock_post.call_count
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_exhausted_retries_sends_error_card(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
+        self, mock_post: AsyncMock
     ) -> None:
         err = _server_error_response()
         mock_post.side_effect = [err, err, err, _ok_response()]
@@ -329,13 +306,8 @@ class TestABotSend:
         assert "interactive" == error_payload["msg_type"]
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
-    async def test_exhausted_retries_with_signer(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
-    ) -> None:
+    async def test_exhausted_retries_with_signer(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         async with ABot(_URL, secret=_SECRET, max_tries=1) as abot:
             await abot.asend({"msg_type": "text"})
@@ -496,26 +468,16 @@ class TestQBotSend:
         assert "sign" in call_payload
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
-    async def test_retry_then_success(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
-    ) -> None:
+    async def test_retry_then_success(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         async with _qbot_ctx(QBot(_URL, max_tries=3)) as qbot:
             resp = await qbot.send({"msg_type": "text"})
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
-    async def test_retry_on_bad_code(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
-    ) -> None:
+    async def test_retry_on_bad_code(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_bad_code_response(), _ok_response()]
         async with _qbot_ctx(QBot(_URL, max_tries=2)) as qbot:
             resp = await qbot.send({"msg_type": "text"})
@@ -523,12 +485,9 @@ class TestQBotSend:
         assert 2 == mock_post.call_count
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_exhausted_retries_sends_error_card(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
+        self, mock_post: AsyncMock
     ) -> None:
         err = _server_error_response()
         mock_post.side_effect = [err, err, _ok_response()]
@@ -538,13 +497,8 @@ class TestQBotSend:
         assert 3 == mock_post.call_count
 
     @pytest.mark.asyncio
-    @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
-    async def test_exhausted_retries_with_signer(
-        self,
-        mock_post: AsyncMock,
-        mock_sleep: AsyncMock,
-    ) -> None:
+    async def test_exhausted_retries_with_signer(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         async with _qbot_ctx(QBot(_URL, secret=_SECRET, max_tries=1)) as qbot:
             resp = await qbot.send({"msg_type": "text"})
