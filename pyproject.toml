@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "lark-bots"
-version = "0.2.0"
+version = "0.2.1"
 description = "Lark/Feishu Bot Python SDK"
 readme = "README.md"
 license = "MIT"
