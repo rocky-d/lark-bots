@@ -5,7 +5,7 @@ import hmac
 import logging
 import time
 from types import TracebackType
-from typing import Any, Self, Type
+from typing import Any, NoReturn, Self, Type
 
 import atask
 import httpx
@@ -322,7 +322,7 @@ class ABot:
         return await self.asend(payload)
 
 
-class QBot(atask.AsyncTask[None]):
+class QBot(atask.AsyncTask[NoReturn]):
     def __init__(
         self,
         url: str,
@@ -384,7 +384,7 @@ class QBot(atask.AsyncTask[None]):
 
     async def _atask(
         self,
-    ) -> None:
+    ) -> NoReturn:
         while True:
             payload, fut = await self._aque.get()
             for i in range(self._max_tries):
