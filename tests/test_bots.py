@@ -467,22 +467,26 @@ class TestABotSendHelpers:
 
 
 class TestQBotInit:
-    def test_defaults(self) -> None:
+    @pytest.mark.asyncio
+    async def test_defaults(self) -> None:
         qbot = QBot(_URL)
         assert False is qbot.closed
         assert qbot._signer is None
         assert 1.0 == qbot._delay
         assert 3 == qbot._max_tries
 
-    def test_with_secret(self) -> None:
+    @pytest.mark.asyncio
+    async def test_with_secret(self) -> None:
         qbot = QBot(_URL, secret=_SECRET)
         assert qbot._signer is not None
 
-    def test_delay_clamp(self) -> None:
+    @pytest.mark.asyncio
+    async def test_delay_clamp(self) -> None:
         qbot = QBot(_URL, delay=-2.0)
         assert 0.0 == qbot._delay
 
-    def test_max_tries_clamp(self) -> None:
+    @pytest.mark.asyncio
+    async def test_max_tries_clamp(self) -> None:
         qbot = QBot(_URL, max_tries=0)
         assert 1 == qbot._max_tries
 
