@@ -101,9 +101,7 @@ class TestBotSend:
     @patch("time.sleep")
     @patch("httpx.Client.post")
     def test_retry_on_http_error(
-        self,
-        mock_post: MagicMock,
-        mock_sleep: MagicMock,
+        self, mock_post: MagicMock, mock_sleep: MagicMock
     ) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         with Bot(_URL, max_tries=3) as bot:
@@ -153,9 +151,7 @@ class TestBotSend:
     @patch("time.sleep")
     @patch("httpx.Client.post")
     def test_no_sleep_on_first_try(
-        self,
-        mock_post: MagicMock,
-        mock_sleep: MagicMock,
+        self, mock_post: MagicMock, mock_sleep: MagicMock
     ) -> None:
         mock_post.return_value = _ok_response()
         with Bot(_URL) as bot:
@@ -164,11 +160,7 @@ class TestBotSend:
 
     @patch("time.sleep")
     @patch("httpx.Client.post")
-    def test_custom_delay(
-        self,
-        mock_post: MagicMock,
-        mock_sleep: MagicMock,
-    ) -> None:
+    def test_custom_delay(self, mock_post: MagicMock, mock_sleep: MagicMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
         with Bot(_URL, delay=2.5, max_tries=2) as bot:
             bot.send({"msg_type": "text"})
@@ -510,8 +502,7 @@ class TestQBotSend:
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_multiple_sends_processed_in_order(
-        self,
-        mock_post: AsyncMock,
+        self, mock_post: AsyncMock
     ) -> None:
         mock_post.return_value = _ok_response()
         async with _qbot_ctx(QBot(_URL)) as qbot:
