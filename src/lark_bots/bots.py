@@ -1,7 +1,4 @@
 import asyncio as aio
-import base64
-import hashlib
-import hmac
 import logging
 import time
 from types import TracebackType
@@ -11,6 +8,7 @@ import atask
 import httpx
 
 from .cards import error_card_factory
+from .signer import Signer
 
 __all__ = [
     "Bot",
@@ -23,39 +21,6 @@ _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.NullHandler())
 
 
-class _Signer:
-    def __init__(
-        self,
-        secret: str,
-    ) -> None:
-        self._secret = secret
-
-    @property
-    def secret(
-        self,
-    ) -> str:
-        return self._secret
-
-    def gen_sign(
-        self,
-        timestamp: str | int,
-    ) -> str:
-        return base64.b64encode(
-            hmac.digest(
-                f"{timestamp}\n{self._secret}".encode(),
-                b"",
-                hashlib.sha256,
-            ),
-        ).decode()
-
-    def sign(
-        self,
-        payload: dict,
-    ) -> None:
-        payload["timestamp"] = timestamp = int(time.time())
-        payload["sign"] = self.gen_sign(timestamp)
-
-
 class Bot:
     def __init__(
         self,
@@ -66,7 +31,7 @@ class Bot:
         max_tries: int = 3,
     ) -> None:
         self._url = url
-        self._signer = _Signer(secret) if secret else None
+        self._signer = Signer(secret) if secret else None
         self._delay = max(0.0, delay)
         self._max_tries = max(1, max_tries)
         self._client = httpx.Client()
@@ -199,7 +164,7 @@ class ABot:
         max_tries: int = 3,
     ) -> None:
         self._url = url
-        self._signer = _Signer(secret) if secret else None
+        self._signer = Signer(secret) if secret else None
         self._delay = max(0.0, delay)
         self._max_tries = max(1, max_tries)
         self._aclient = httpx.AsyncClient()
@@ -333,7 +298,7 @@ class QBot(atask.AsyncTask[NoReturn]):
     ) -> None:
         super().__init__()
         self._url = url
-        self._signer = _Signer(secret) if secret else None
+        self._signer = Signer(secret) if secret else None
         self._delay = max(0.0, delay)
         self._max_tries = max(1, max_tries)
         self._aclient = httpx.AsyncClient()

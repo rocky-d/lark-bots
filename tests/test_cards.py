@@ -6,7 +6,6 @@ from lark_bots.cards import (
     local_datetime_element_factory,
 )
 
-
 # ===========================================================================
 # local_datetime_element_factory
 # ===========================================================================
