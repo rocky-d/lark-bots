@@ -5,7 +5,7 @@ import hmac
 import logging
 import time
 from types import TracebackType
-from typing import Self, Type
+from typing import Any, Self, Type
 
 import atask
 import httpx
@@ -16,7 +16,6 @@ __all__ = [
     "Bot",
     "ABot",
     "QBot",
-    "QBotNowait",
 ]
 
 
@@ -208,7 +207,7 @@ class ABot:
     async def __aenter__(
         self,
     ) -> Self:
-        await self.start()
+        await self.astart()
         return self
 
     async def __aexit__(
@@ -217,7 +216,7 @@ class ABot:
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        await self.stop(exc_type, exc_value, exc_traceback)
+        await self.astop(exc_type, exc_value, exc_traceback)
 
     @property
     def closed(
@@ -225,12 +224,12 @@ class ABot:
     ) -> bool:
         return self._aclient.is_closed
 
-    async def start(
+    async def astart(
         self,
     ) -> None:
         await self._aclient.__aenter__()
 
-    async def stop(
+    async def astop(
         self,
         exc_type: Type[BaseException] | None = None,
         exc_value: BaseException | None = None,
@@ -238,7 +237,7 @@ class ABot:
     ) -> None:
         await self._aclient.__aexit__(exc_type, exc_value, exc_traceback)
 
-    async def send(
+    async def asend(
         self,
         payload: dict,
     ) -> httpx.Response:
@@ -272,7 +271,7 @@ class ABot:
             _resp = await self._aclient.post(self._url, json=payload)
         return resp
 
-    async def send_text(
+    async def asend_text(
         self,
         text: str,
     ) -> httpx.Response:
@@ -280,9 +279,9 @@ class ABot:
             "msg_type": "text",
             "content": {"text": text},
         }
-        return await self.send(payload)
+        return await self.asend(payload)
 
-    async def send_post(
+    async def asend_post(
         self,
         post: dict,
     ) -> httpx.Response:
@@ -290,9 +289,9 @@ class ABot:
             "msg_type": "post",
             "content": {"post": post},
         }
-        return await self.send(payload)
+        return await self.asend(payload)
 
-    async def send_share_chat(
+    async def asend_share_chat(
         self,
         share_chat_id: str,
     ) -> httpx.Response:
@@ -300,9 +299,9 @@ class ABot:
             "msg_type": "share_chat",
             "content": {"share_chat_id": share_chat_id},
         }
-        return await self.send(payload)
+        return await self.asend(payload)
 
-    async def send_image(
+    async def asend_image(
         self,
         image_key: str,
     ) -> httpx.Response:
@@ -310,9 +309,9 @@ class ABot:
             "msg_type": "image",
             "content": {"image_key": image_key},
         }
-        return await self.send(payload)
+        return await self.asend(payload)
 
-    async def send_interactive(
+    async def asend_interactive(
         self,
         card: dict,
     ) -> httpx.Response:
@@ -320,10 +319,10 @@ class ABot:
             "msg_type": "interactive",
             "card": card,
         }
-        return await self.send(payload)
+        return await self.asend(payload)
 
 
-class _BaseQBot(atask.AsyncTask[None]):
+class QBot(atask.AsyncTask[None]):
     def __init__(
         self,
         url: str,
@@ -346,138 +345,48 @@ class _BaseQBot(atask.AsyncTask[None]):
     ) -> bool:
         return self._aclient.is_closed
 
-    async def start(
+    async def astart(
         self,
     ) -> None:
         _logger.info(f"{self} starting")
-        if self.running:
+        if self.started:
             _logger.info(f"{self} has started")
             return
         await self._aclient.__aenter__()
-        await super().start()
+        await super().astart()
         _logger.info(f"{self} started")
 
-    async def stop(
+    async def acancel(
+        self,
+        msg: Any | None = None,
+    ) -> None:
+        _logger.info(f"{self} canceling")
+        if not self.started:
+            _logger.info(f"{self} has canceled")
+            return
+        await self._que.join()
+        await super().acancel()
+        _logger.info(f"{self} canceled")
+
+    async def astop(
         self,
         exc_type: Type[BaseException] | None = None,
         exc_value: BaseException | None = None,
         exc_traceback: TracebackType | None = None,
     ) -> None:
         _logger.info(f"{self} stopping")
-        if not self.running:
+        if not self.started:
             _logger.info(f"{self} has stopped")
             return
-        await self._que.join()
-        await super().cancel()
-        await super().stop(exc_type, exc_value, exc_traceback)
+        await super().astop(exc_type, exc_value, exc_traceback)
         await self._aclient.__aexit__(exc_type, exc_value, exc_traceback)
         _logger.info(f"{self} stopped")
 
-
-class QBot(_BaseQBot):
-    async def _run(
+    async def _atask(
         self,
     ) -> None:
         while True:
             payload, fut = await self._que.get()
-            for i in range(self._max_tries):
-                if 0 < i:
-                    await aio.sleep(self._delay)
-                if self._signer:
-                    self._signer.sign(payload)
-                resp = await self._aclient.post(self._url, json=payload)
-                status = resp.status_code
-                reason = resp.reason_phrase
-                headers = resp.headers
-                text = resp.text
-                if resp.is_error:
-                    _logger.warning(f"{status} {reason} {text}")
-                    continue
-                data = resp.json()
-                if not (isinstance(data, dict) and 0 == data.get("code")):
-                    _logger.warning(f"{status} {reason} {text}")
-                    continue
-                _logger.info(f"{status} {reason} {text}")
-                break
-            else:
-                message = f"{status} {reason} {text}\n{headers}"
-                _logger.error(message)
-                error_card = error_card_factory()
-                error_card["body"]["elements"][1]["text"]["content"] = message
-                payload = {"msg_type": "interactive", "card": error_card}
-                if self._signer:
-                    self._signer.sign(payload)
-                _resp = await self._aclient.post(self._url, json=payload)
-            fut.set_result(resp)
-            self._que.task_done()
-
-    async def send(
-        self,
-        payload: dict,
-    ) -> aio.Future[httpx.Response]:
-        fut = aio.Future()
-        await self._que.put((payload, fut))
-        return fut
-
-    async def send_text(
-        self,
-        text: str,
-    ) -> aio.Future[httpx.Response]:
-        payload = {
-            "msg_type": "text",
-            "content": {"text": text},
-        }
-        return await self.send(payload)
-
-    async def send_post(
-        self,
-        post: dict,
-    ) -> aio.Future[httpx.Response]:
-        payload = {
-            "msg_type": "post",
-            "content": {"post": post},
-        }
-        return await self.send(payload)
-
-    async def send_share_chat(
-        self,
-        share_chat_id: str,
-    ) -> aio.Future[httpx.Response]:
-        payload = {
-            "msg_type": "share_chat",
-            "content": {"share_chat_id": share_chat_id},
-        }
-        return await self.send(payload)
-
-    async def send_image(
-        self,
-        image_key: str,
-    ) -> aio.Future[httpx.Response]:
-        payload = {
-            "msg_type": "image",
-            "content": {"image_key": image_key},
-        }
-        return await self.send(payload)
-
-    async def send_interactive(
-        self,
-        card: dict,
-    ) -> aio.Future[httpx.Response]:
-        payload = {
-            "msg_type": "interactive",
-            "card": card,
-        }
-        return await self.send(payload)
-
-
-class QBotNowait(_BaseQBot):
-    async def _run(
-        self,
-    ) -> None:
-        while True:
-            while self._que.empty():
-                await aio.sleep(0.01)
-            payload, fut = self._que.get_nowait()
             for i in range(self._max_tries):
                 if 0 < i:
                     await aio.sleep(self._delay)
@@ -566,3 +475,61 @@ class QBotNowait(_BaseQBot):
             "card": card,
         }
         return self.send(payload)
+
+    async def asend(
+        self,
+        payload: dict,
+    ) -> aio.Future[httpx.Response]:
+        fut = aio.Future()
+        await self._que.put((payload, fut))
+        return fut
+
+    async def asend_text(
+        self,
+        text: str,
+    ) -> aio.Future[httpx.Response]:
+        payload = {
+            "msg_type": "text",
+            "content": {"text": text},
+        }
+        return await self.asend(payload)
+
+    async def asend_post(
+        self,
+        post: dict,
+    ) -> aio.Future[httpx.Response]:
+        payload = {
+            "msg_type": "post",
+            "content": {"post": post},
+        }
+        return await self.asend(payload)
+
+    async def asend_share_chat(
+        self,
+        share_chat_id: str,
+    ) -> aio.Future[httpx.Response]:
+        payload = {
+            "msg_type": "share_chat",
+            "content": {"share_chat_id": share_chat_id},
+        }
+        return await self.asend(payload)
+
+    async def asend_image(
+        self,
+        image_key: str,
+    ) -> aio.Future[httpx.Response]:
+        payload = {
+            "msg_type": "image",
+            "content": {"image_key": image_key},
+        }
+        return await self.asend(payload)
+
+    async def asend_interactive(
+        self,
+        card: dict,
+    ) -> aio.Future[httpx.Response]:
+        payload = {
+            "msg_type": "interactive",
+            "card": card,
+        }
+        return await self.asend(payload)
