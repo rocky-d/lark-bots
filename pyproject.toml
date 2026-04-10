@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "atask>=0.2.0",
+    "atask>=0.2.1",
     "httpx>=0.28.1",
 ]
 

@@ -17,11 +17,11 @@ wheels = [
 
 [[package]]
 name = "atask"
-version = "0.2.0.post1"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/59/cf/4297b242ecb766c8e6a99d423dabc3b1bcbf81aff0b2c9f6b00bc46b4e20/atask-0.2.0.post1.tar.gz", hash = "sha256:cdd72bac10bf823857183a818669dfe311273d76060a4a91cce3bb0cc146bdf1", size = 3948, upload-time = "2026-04-09T17:51:35.948Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a1/e1/7efa44789d187a1ab5f8c9710bd2788d8c1244aeecc6fb5df3549107824c/atask-0.2.1.tar.gz", hash = "sha256:7b4b02603b97a831d771d918990c857edc9f3f3fda09a9169876694213417a33", size = 3846, upload-time = "2026-04-10T13:43:05.309Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/5b/5ffb2c0093febc333b86fac337314a0b50f82c1e1e09935fbaa7ff8ec082/atask-0.2.0.post1-py3-none-any.whl", hash = "sha256:773398b567de8e8aef5ae3f960fe15f1098a6ac5c42ddefb6e4b698deb9d23c8", size = 4963, upload-time = "2026-04-09T17:51:34.827Z" },
+    { url = "https://files.pythonhosted.org/packages/27/fe/0709359c50b76c11807dac2a2faf4c57055fec7da7e581a092e36dd2f3b1/atask-0.2.1-py3-none-any.whl", hash = "sha256:9334b48c6b18c34ca6e9484c8719427247226afcb6d6cc58dedbf47eed1e610e", size = 4801, upload-time = "2026-04-10T13:43:04.25Z" },
 ]
 
 [[package]]
@@ -211,7 +211,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "atask", specifier = ">=0.2.0" },
+    { name = "atask", specifier = ">=0.2.1" },
     { name = "httpx", specifier = ">=0.28.1" },
 ]
 
