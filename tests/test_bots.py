@@ -1,7 +1,5 @@
 import asyncio as aio
 import random
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -28,16 +26,6 @@ def _bad_code_response() -> httpx.Response:
 
 def _server_error_response() -> httpx.Response:
     return httpx.Response(500, text="Internal Server Error")
-
-
-@asynccontextmanager
-async def _qbot_ctx(qbot: QBot) -> AsyncGenerator[QBot, None]:
-    await qbot.astart()
-    try:
-        yield qbot
-    finally:
-        await qbot.acancel()
-        await qbot.astop()
 
 
 # ===========================================================================
@@ -411,9 +399,10 @@ class TestQBotLifecycle:
 
     @pytest.mark.asyncio
     async def test_astart_idempotent(self) -> None:
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             await qbot.astart()
             assert True is qbot.started
+            await qbot.acancel()
 
     @pytest.mark.asyncio
     async def test_acancel_not_started(self) -> None:
@@ -433,29 +422,32 @@ class TestQBotSend:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_send_returns_future(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = qbot.send({"msg_type": "text", "content": {"text": "hi"}})
             assert isinstance(fut, aio.Future)
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_asend_returns_future(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = await qbot.asend({"msg_type": "text"})
             assert isinstance(fut, aio.Future)
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_send_with_signer(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL, secret=_SECRET)) as qbot:
+        async with QBot(_URL, secret=_SECRET) as qbot:
             fut = qbot.send({"msg_type": "text"})
             await fut
+            await qbot.acancel()
         call_payload = mock_post.call_args[1]["json"]
         assert "sign" in call_payload
 
@@ -463,16 +455,18 @@ class TestQBotSend:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_retry_then_success(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
-        async with _qbot_ctx(QBot(_URL, max_tries=3)) as qbot:
+        async with QBot(_URL, max_tries=3) as qbot:
             resp = await qbot.send({"msg_type": "text"})
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_retry_on_bad_code(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_bad_code_response(), _ok_response()]
-        async with _qbot_ctx(QBot(_URL, max_tries=2)) as qbot:
+        async with QBot(_URL, max_tries=2) as qbot:
             resp = await qbot.send({"msg_type": "text"})
+            await qbot.acancel()
         assert 200 == resp.status_code
         assert 2 == mock_post.call_count
 
@@ -483,8 +477,9 @@ class TestQBotSend:
     ) -> None:
         err = _server_error_response()
         mock_post.side_effect = [err, err, _ok_response()]
-        async with _qbot_ctx(QBot(_URL, max_tries=2)) as qbot:
+        async with QBot(_URL, max_tries=2) as qbot:
             resp = await qbot.send({"msg_type": "text"})
+            await qbot.acancel()
         assert 500 == resp.status_code
         assert 3 == mock_post.call_count
 
@@ -492,8 +487,9 @@ class TestQBotSend:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_exhausted_retries_with_signer(self, mock_post: AsyncMock) -> None:
         mock_post.side_effect = [_server_error_response(), _ok_response()]
-        async with _qbot_ctx(QBot(_URL, secret=_SECRET, max_tries=1)) as qbot:
+        async with QBot(_URL, secret=_SECRET, max_tries=1) as qbot:
             resp = await qbot.send({"msg_type": "text"})
+            await qbot.acancel()
         assert 500 == resp.status_code
         assert 2 == mock_post.call_count
         error_payload = mock_post.call_args_list[1][1]["json"]
@@ -505,11 +501,12 @@ class TestQBotSend:
         self, mock_post: AsyncMock
     ) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut1 = qbot.send({"msg_type": "text", "content": {"text": "a"}})
             fut2 = qbot.send({"msg_type": "text", "content": {"text": "b"}})
             r1 = await fut1
             r2 = await fut2
+            await qbot.acancel()
         assert 200 == r1.status_code
         assert 200 == r2.status_code
         assert 2 == mock_post.call_count
@@ -534,7 +531,7 @@ class TestQBotSend:
         ]
         ops = [(False, op) for op in sync_ops] + [(True, op) for op in async_ops]
         random.shuffle(ops)
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             futs = []
             for is_async, op in ops:
                 if is_async:
@@ -542,6 +539,7 @@ class TestQBotSend:
                 else:
                     futs.append(op(qbot))
             results = [await f for f in futs]
+            await qbot.acancel()
         for r in results:
             assert 200 == r.status_code
         assert 10 == mock_post.call_count
@@ -552,8 +550,9 @@ class TestQBotSendHelpers:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_send_text(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             resp = await qbot.send_text("hello")
+            await qbot.acancel()
         assert 200 == resp.status_code
         payload = mock_post.call_args[1]["json"]
         assert "text" == payload["msg_type"]
@@ -562,8 +561,9 @@ class TestQBotSendHelpers:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_send_post(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             resp = await qbot.send_post({"en_us": {}})
+            await qbot.acancel()
         assert 200 == resp.status_code
         payload = mock_post.call_args[1]["json"]
         assert "post" == payload["msg_type"]
@@ -572,8 +572,9 @@ class TestQBotSendHelpers:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_send_share_chat(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             resp = await qbot.send_share_chat("oc_xxx")
+            await qbot.acancel()
         assert 200 == resp.status_code
         payload = mock_post.call_args[1]["json"]
         assert "share_chat" == payload["msg_type"]
@@ -582,8 +583,9 @@ class TestQBotSendHelpers:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_send_image(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             resp = await qbot.send_image("img_xxx")
+            await qbot.acancel()
         assert 200 == resp.status_code
         payload = mock_post.call_args[1]["json"]
         assert "image" == payload["msg_type"]
@@ -593,8 +595,9 @@ class TestQBotSendHelpers:
     async def test_send_interactive(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
         card = {"schema": "2.0"}
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             resp = await qbot.send_interactive(card)
+            await qbot.acancel()
         assert 200 == resp.status_code
         payload = mock_post.call_args[1]["json"]
         assert "interactive" == payload["msg_type"]
@@ -603,36 +606,40 @@ class TestQBotSendHelpers:
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_asend_text(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = await qbot.asend_text("hello")
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_asend_post(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = await qbot.asend_post({"en_us": {}})
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_asend_share_chat(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = await qbot.asend_share_chat("oc_xxx")
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
     @patch("httpx.AsyncClient.post", new_callable=AsyncMock)
     async def test_asend_image(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = await qbot.asend_image("img_xxx")
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
 
     @pytest.mark.asyncio
@@ -640,7 +647,8 @@ class TestQBotSendHelpers:
     async def test_asend_interactive(self, mock_post: AsyncMock) -> None:
         mock_post.return_value = _ok_response()
         card = {"schema": "2.0"}
-        async with _qbot_ctx(QBot(_URL)) as qbot:
+        async with QBot(_URL) as qbot:
             fut = await qbot.asend_interactive(card)
             resp = await fut
+            await qbot.acancel()
         assert 200 == resp.status_code
