@@ -330,7 +330,7 @@ class QBot(atask.AsyncTask[NoReturn]):
             _logger.info(f"{self} has canceled")
             return
         await self._aque.join()
-        await super().acancel()
+        await super().acancel(msg)
         _logger.info(f"{self} canceled")
 
     async def astop(
